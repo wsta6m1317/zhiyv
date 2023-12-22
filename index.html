@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html" charset="utf-8"/>
+    <title>Babylon - Getting Started</title>
+    <!--- Link to the last version of BabylonJS --->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="./utils.js"></script>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+    </style>
+</head>
+<body>
+<canvas id="renderCanvas" ></canvas>
+<img id="img" src="./assets/code.png" alt="" style="display: none">
+<script>
+//https://playground.babylonjs.com/#66PS52
+let canvas = window.renderCanvas
+let engine = new bl.Engine(canvas, true);
+let GL = {
+    scene: null,
+    camera: null
+}
+let createScene = function () {
+    //创建场景
+    GL.scene = new bl.Scene(engine);
+    GL.scene.useRightHandedSystem = true;
+    //创建相机
+    // 创建相机的配置项：name, alpha, beta, radius, target position, scene
+    GL.camera = new bl.ArcRotateCamera("Camera", 0, 0, 10, Vec3(0, 0, 0), GL.scene);
+
+
+    // 通过设置相机位置来覆盖 alpha, beta, radius
+    GL.camera.setPosition(Vec3(200, 300, 200));
+    //设置相机时间绑定到画布上，即画布事件会触发相机动作
+    GL.camera.attachControl(canvas, true);
+    GL.camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;            //指定相机的类型
+    var ratio = window.innerHeight / window.innerWidth;     //计算屏幕宽高比
+    let size = 130
+    GL.camera.orthoLeft = -size;                        //设置近平面的左侧边界
+    GL.camera.orthoRight = size;                      //设置近平面的右侧边界
+    GL.camera.orthoTop = size * ratio;                   //设置近平面的顶部边界
+    GL.camera.orthoBottom = -size * ratio;
+
+    //创建光
+    // create a basic light, aiming 0,1,0 - meaning, to the sky
+    // let light = new bl.HemisphericLight('light1', Vec3(0, 0, 5), GL.scene);
+    // light.intensity = 1
+
+    GL.scene.ambientColor = Color4(1, 1, 1, 1);
+    GL.scene.clearColor = Color4(0.6, 0.6, 0.6, 1);
+
+    // let light1 = new BABYLON.PointLight("pointLight", new BABYLON.Vector3(0, 0, 0), GL.scene);
+
+    CreateMesh()
+}
+
+function getGrayData(width, height) {
+    let _canvas = document.createElement('canvas')
+
+    _canvas.setAttribute('width', width)
+    _canvas.setAttribute('height', height)
+
+    let ctx = _canvas.getContext('2d')
+
+    let img = document.querySelector('#img')
+    ctx.drawImage(img, 0, 0, width, height)
+
+
+    //灰度处理
+    let imageData = ctx.getImageData(0, 0, width, height)
+    let _data = imageData.data
+
+    for (let i = 0; i < _data.length; i += 4) {
+        let ava = (_data[i] + _data[i + 1] + _data[i + 2]) / 3
+        _data[i] = ava
+        _data[i + 1] = ava
+        _data[i + 2] = ava
+    }
+    return _data
+}
+
+
+function CreateMesh() {
+
+    let width = 50, height = 50
+    let data = getGrayData(width, height)
+
+    const SPS = new BABYLON.SolidParticleSystem("SPS", GL.scene, {
+        useModelMaterial: true
+    }); // scene is required
+    const sphere = BABYLON.MeshBuilder.CreateBox("s", {size:1});
+
+    SPS.addShape(sphere, data.length / 4); // 80 other spheres
+
+    sphere.dispose(); //free memory
+
+    var myMaterial = new BABYLON.StandardMaterial("myMaterial", GL.scene);//创建一个材质
+
+    // myMaterial.diffuseColor = new BABYLON.Color3(1, 0, 1);//漫反射颜色
+    // myMaterial.specularColor = new BABYLON.Color3(1, 0.6, 0.87);//镜面颜色
+    // sphere.emissiveColor = new BABYLON.Color3(1, 0, 0);//自发光颜色
+    // myMaterial.ambientColor = new BABYLON.Color3(1, 1, 1);//环境光颜色
+
+    // mesh.material = myMaterial;//mesh是之前创建的物体
+
+
+    const mesh = SPS.buildMesh(); // finally builds and displays the SPS mesh
+
+    let materials = []
+    for (let i = 0; i < width; i++) {
+        for (let j = 0; j < height; j++) {
+            let index = (i * width + j) * 4
+            var mat0 = new BABYLON.StandardMaterial("m1", GL.scene);
+            mat0.ambientColor = new BABYLON.Color3(
+                data[index] / 255,
+                data[index + 1] / 255,
+                data[index + 2] / 255,
+                // 1,
+                // 0,
+                // 0
+            );
+            // console.log(data[index],data[index+1],data[index+2])
+            materials.push(mat0)
+        }
+    }
+    SPS.setMultiMaterial(materials);
+
+    // initiate particles function
+    SPS.initParticles = () => {
+        for (let i = 0; i < width; i++) {
+            for (let j = 0; j < height; j++) {
+                let index = i * width + j
+                const particle = SPS.particles[index];
+
+                particle.position.x = (j - width / 2) ;
+                particle.position.y = (i - height / 2);
+                particle.position.z = BABYLON.Scalar.RandomRange(-25, 25) ;
+
+                particle.materialIndex = index;
+
+                materials.push(mat0)
+            }
+        }
+
+    };
+
+    // SPS.updateParticle = SPS.initParticles ;
+    SPS.initParticles();
+    SPS.setParticles();
+    SPS.computeSubMeshes();
+
+
+}
+
+// call the createScene function
+createScene();
+
+// run the render loop
+engine.runRenderLoop(function () {
+    GL.scene.render();
+});
+
+//40分 19s
+// the canvas/window resize event handler
+window.addEventListener('resize', _ => engine.resize());
+//1.57.53
+</script>
+</body>
+</html>
