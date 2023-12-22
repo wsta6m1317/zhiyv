@@ -5,6 +5,7 @@
     <title>Babylon - Getting Started</title>
     <!--- Link to the last version of BabylonJS --->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
+<!--    <script src="../../lib/babylon.js"></script>-->
     <script src="./utils.js"></script>
     <style>
         html, body {
@@ -16,9 +17,11 @@
         }
 
         #renderCanvas {
-            width: 100%;
-            height: 100%;
+            display: block;
+            width: min(100vw,100vh);
+            height:min(100vw,100vh);
             touch-action: none;
+            margin: auto;
         }
 
     </style>
@@ -40,20 +43,94 @@ let createScene = function () {
     GL.scene.useRightHandedSystem = true;
     //创建相机
     // 创建相机的配置项：name, alpha, beta, radius, target position, scene
-    GL.camera = new bl.ArcRotateCamera("Camera", 0, 0, 10, Vec3(0, 0, 0), GL.scene);
+    GL.camera = new bl.ArcRotateCamera("Camera",
+        BABYLON.Tools.ToRadians(45),
+        BABYLON.Tools.ToRadians(45),
+        10,
+        new BABYLON.Vector3(0, 0, 0),
+        GL.scene);
+    // GL.camera.fov =0.0001
+    GL.camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+    // let ratio = window.innerHeight / window.innerWidth; //计算屏幕宽高比
+    // GL.camera.orthoLeft = -13; //设置近平面的左侧边界
+    // GL.camera.orthoRight = 13; //设置近平面的右侧边界
+    // GL.camera.orthoTop = 13*ratio ; //设置近平面的顶部边界
+    // GL.camera.orthoBottom = -13 *ratio; //设置近平面的底部边界
+    var halfSize = 35;
+    GL.camera.orthoLeft = -halfSize;
+    GL.camera.orthoRight = halfSize;
+    GL.camera.orthoTop = halfSize;
+    GL.camera.orthoBottom = -halfSize;
+
+    var zoom = function(factor) {
+        GL.camera.orthoLeft *= factor;
+        GL.camera.orthoRight *= factor;
+        GL.camera.orthoTop *= factor;
+        GL.camera.orthoBottom *= factor;
+    }
+
+    // 使用鼠标滚轮来缩放
+    var mouseWheelInput = function (event) {
+        var delta = 0;
+        if (event.wheelDelta) {
+            delta = event.wheelDelta;
+        } else if (event.detail) {
+            delta = -event.detail;
+        }
+
+        if (delta > 0) {
+            zoom(0.9); // 缩小
+        } else if (delta < 0) {
+            zoom(1.1); // 放大
+        }
+    }
+
+    window.addEventListener("mousewheel", mouseWheelInput, false);
+    window.addEventListener("DOMMouseScroll", mouseWheelInput, false);
+
+
+    var lastDistance = null;
+
+    var touchStartHandler = function(event) {
+        if (event.touches.length == 2) {
+            // 当有两个触摸点时，计算它们的距离
+            var dx = event.touches[0].pageX - event.touches[1].pageX;
+            var dy = event.touches[0].pageY - event.touches[1].pageY;
+            lastDistance = Math.sqrt(dx * dx + dy * dy);
+        }
+    };
+
+    var touchMoveHandler = function(event) {
+        if (event.touches.length == 2) {
+            // 再次计算触摸点间的距离
+            var dx = event.touches[0].pageX - event.touches[1].pageX;
+            var dy = event.touches[0].pageY - event.touches[1].pageY;
+            var distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (lastDistance) {
+                var factor = lastDistance/ distance ;
+                zoom(factor);
+                lastDistance = distance;
+            }
+        }
+    };
+
+    var touchEndHandler = function(event) {
+        lastDistance = null;
+    };
+
+// 将事件监听器添加到canvas或者其他合适的元素上
+    canvas.addEventListener('touchstart', touchStartHandler, false);
+    canvas.addEventListener('touchmove', touchMoveHandler, false);
+    canvas.addEventListener('touchend', touchEndHandler, false);
+
 
 
     // 通过设置相机位置来覆盖 alpha, beta, radius
     GL.camera.setPosition(Vec3(200, 300, 200));
     //设置相机时间绑定到画布上，即画布事件会触发相机动作
     GL.camera.attachControl(canvas, true);
-    GL.camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;            //指定相机的类型
-    var ratio = window.innerHeight / window.innerWidth;     //计算屏幕宽高比
-    let size = 130
-    GL.camera.orthoLeft = -size;                        //设置近平面的左侧边界
-    GL.camera.orthoRight = size;                      //设置近平面的右侧边界
-    GL.camera.orthoTop = size * ratio;                   //设置近平面的顶部边界
-    GL.camera.orthoBottom = -size * ratio;
+
 
     //创建光
     // create a basic light, aiming 0,1,0 - meaning, to the sky
